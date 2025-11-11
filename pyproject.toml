@@ -1,0 +1,51 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "mcp-server-skill"
+version = "0.1.0"
+description = "MCP server that enables any agent to use Claude Skills via progressive disclosure"
+readme = "README.md"
+requires-python = ">=3.10"
+authors = [
+    { name = "Open-ClaudeSkill Contributors" }
+]
+keywords = ["mcp", "skill", "claude", "agent", "ai"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "build>=1.3.0",
+    "mcp>=1.0.0",
+    "pyyaml>=6.0.1",
+    "watchdog>=3.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/your-org/open-claudeskill"
+Repository = "https://github.com/your-org/open-claudeskill"
+Documentation = "https://github.com/your-org/open-claudeskill#readme"
+
+[[tool.uv.index]]
+url = "https://mirrors.aliyun.com/pypi/simple/"
+default = true
+
+[project.scripts]
+mcp-server-skill = "mcp_server_skill.server:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/mcp_server_skill"]
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "/src",
+    "/README.md",
+    "/LICENSE",
+]

@@ -1,0 +1,14 @@
+{
+  "mcpServers": {
+    "skill": {
+      "command": "uvx",
+      "args": [
+        "mcp-server-skill"
+      ],
+      "alwaysAllow": [
+        "load_skill"
+      ],
+      "disabled": false
+    }
+  }
+}

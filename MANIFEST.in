@@ -1,0 +1,24 @@
+# Include documentation
+include README.md
+include README.zh-CN.md
+include LICENSE
+include QUICKSTART.md
+include MCP_CONFIG.md
+include AGENT_PROMPT.md
+include ARCHITECTURE.md
+include CONTRIBUTING.md
+include PROJECT_SUMMARY.md
+
+# Include example configuration
+include mcp_settings.example.json
+
+# Include examples
+recursive-include examples *.md
+
+# Exclude development files
+exclude .gitignore
+exclude setup.py
+
+# Exclude skills directories (users create their own)
+prune .skill
+prune skills-main
