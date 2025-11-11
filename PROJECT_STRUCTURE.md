@@ -9,7 +9,7 @@ Open-ClaudeSkill/
 │   ├── README.md                   Main documentation (English)
 │   ├── README.zh-CN.md             Main documentation (Chinese)
 │   ├── QUICKSTART.md               5-minute quick start
-│   ├── LICENSE                     MIT License
+│   ├── LICENSE                     Apache License 2.0
 │   └── CHANGELOG.md                Version history
 │
 ├── ⚙️ Configuration Guides

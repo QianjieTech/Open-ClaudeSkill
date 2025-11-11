@@ -41,7 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Example MCP configuration for Kilo Code
 - Installation test script
 - Makefile for common operations
-- MIT License
+- Apache License 2.0
 - Full 100% compatibility with Agent Skills Spec
 
 ### Features
