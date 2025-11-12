@@ -2,21 +2,30 @@
 
 import os
 import yaml
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional
 from dataclasses import dataclass
 
+logger = logging.getLogger(__name__)
+
 
 @dataclass
 class Skill:
-    """Represents a parsed skill."""
+    """Represents a parsed skill.
+
+    Following official Claude Skill format:
+    - name: Skill identifier (must match folder name)
+    - description: Detailed description for agent matching
+    - license: Optional license information
+    - content: Full markdown content after frontmatter
+    - folder_path: Path to skill folder (for resource resolution)
+    """
 
     name: str
     description: str
     content: str  # Full markdown content after frontmatter
     license: Optional[str] = None
-    allowed_tools: Optional[List[str]] = None
-    metadata: Optional[Dict[str, str]] = None
     location: str = "local"  # local or managed
     folder_path: Path = None
 
@@ -56,8 +65,12 @@ class SkillLoader:
         Returns:
             Dictionary mapping skill names to Skill objects.
         """
+        if not self.skills_dir:
+            logger.debug("Skills directory not set")
+            return {}
+
         if not self.skills_dir.exists():
-            print(f"Skills directory not found: {self.skills_dir}")
+            logger.warning(f"Skills directory not found: {self.skills_dir}")
             return {}
 
         discovered_skills = {}
@@ -67,16 +80,22 @@ class SkillLoader:
             if not skill_folder.is_dir():
                 continue
 
+            # Skip hidden directories
+            if skill_folder.name.startswith('.'):
+                continue
+
             skill_file = skill_folder / "SKILL.md"
             if not skill_file.exists():
+                logger.debug(f"Skipping {skill_folder.name}: no SKILL.md found")
                 continue
 
             try:
                 skill = self._parse_skill_file(skill_file, skill_folder)
                 if skill:
                     discovered_skills[skill.name] = skill
+                    logger.debug(f"Loaded skill: {skill.name}")
             except Exception as e:
-                print(f"Error parsing skill {skill_folder.name}: {e}")
+                logger.error(f"Error parsing skill {skill_folder.name}: {e}", exc_info=True)
 
         self.skills = discovered_skills
         return discovered_skills
@@ -97,19 +116,19 @@ class SkillLoader:
 
         # Split frontmatter and body
         if not content.startswith('---'):
-            print(f"Warning: {skill_file} doesn't start with YAML frontmatter")
+            logger.warning(f"{skill_file} doesn't start with YAML frontmatter")
             return None
 
         parts = content.split('---', 2)
         if len(parts) < 3:
-            print(f"Warning: {skill_file} has invalid frontmatter format")
+            logger.warning(f"{skill_file} has invalid frontmatter format")
             return None
 
         # Parse YAML frontmatter
         try:
             frontmatter = yaml.safe_load(parts[1])
         except yaml.YAMLError as e:
-            print(f"Error parsing YAML in {skill_file}: {e}")
+            logger.error(f"Error parsing YAML in {skill_file}: {e}")
             return None
 
         # Extract markdown body
@@ -117,23 +136,24 @@ class SkillLoader:
 
         # Validate required fields
         if 'name' not in frontmatter:
-            print(f"Error: {skill_file} missing required 'name' field")
+            logger.error(f"{skill_file} missing required 'name' field")
             return None
         if 'description' not in frontmatter:
-            print(f"Error: {skill_file} missing required 'description' field")
+            logger.error(f"{skill_file} missing required 'description' field")
             return None
 
         # Verify name matches folder name
         if frontmatter['name'] != folder_path.name:
-            print(f"Warning: skill name '{frontmatter['name']}' doesn't match folder name '{folder_path.name}'")
+            logger.warning(f"Skill name '{frontmatter['name']}' doesn't match folder name '{folder_path.name}'")
 
+        # Note: Only official frontmatter fields are extracted
+        # (name, description, license)
+        # Non-standard fields like 'allowed-tools' and 'metadata' are ignored
         return Skill(
             name=frontmatter['name'],
             description=frontmatter['description'],
             content=markdown_body,
             license=frontmatter.get('license'),
-            allowed_tools=frontmatter.get('allowed-tools'),
-            metadata=frontmatter.get('metadata'),
             folder_path=folder_path
         )
 
@@ -157,3 +177,54 @@ class SkillLoader:
             skills_xml += skill.to_xml() + "\n"
         skills_xml += "</available_skills>"
         return skills_xml
+
+    @staticmethod
+    def resolve_skill_resource_path(skill: Skill, relative_path: str) -> Path:
+        """
+        Resolve a relative path to a skill resource file.
+
+        This allows skills to reference auxiliary resources like templates,
+        fonts, scripts, etc. using relative paths within their folder.
+
+        Args:
+            skill: The skill object
+            relative_path: Relative path within the skill folder (e.g., "templates/viewer.html")
+
+        Returns:
+            Absolute path to the resource file
+
+        Raises:
+            ValueError: If path traversal is detected or path is outside skill directory
+            FileNotFoundError: If the resource file doesn't exist
+
+        Example:
+            >>> skill = get_skill("algorithmic-art")
+            >>> path = resolve_skill_resource_path(skill, "templates/viewer.html")
+            >>> with open(path, 'r') as f:
+            ...     content = f.read()
+        """
+        if not skill.folder_path:
+            raise ValueError(f"Skill '{skill.name}' has no folder_path set")
+
+        # Security: Prevent path traversal attacks
+        if ".." in relative_path:
+            raise ValueError(f"Path traversal not allowed: {relative_path}")
+
+        # Construct full path
+        full_path = skill.folder_path / relative_path
+
+        # Security: Verify path is within skill directory
+        try:
+            resolved_path = full_path.resolve()
+            skill_folder_resolved = skill.folder_path.resolve()
+
+            if not str(resolved_path).startswith(str(skill_folder_resolved)):
+                raise ValueError(f"Path outside skill directory: {relative_path}")
+        except Exception as e:
+            raise ValueError(f"Invalid path: {relative_path}") from e
+
+        # Verify file exists
+        if not resolved_path.exists():
+            raise FileNotFoundError(f"Resource not found: {relative_path}")
+
+        return resolved_path
