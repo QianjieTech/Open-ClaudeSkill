@@ -16,21 +16,78 @@
 
 ## 快速开始
 
-### 安装
+> **⚠️ 当前状态**: 本项目暂未发布到 PyPI，目前无法通过 `uvx mcp-server-skill` 的方式直接使用。我们会尽快打包上传到 PyPI，届时您可以像使用其他 MCP 工具一样通过简单的配置启用 AgentSkill 能力。目前请按照下面的安装指南体验。
+
+**项目地址**: https://github.com/QianjieTech/Open-ClaudeSkill
+
+### 第一步：克隆项目
 
 ```bash
-# 使用 uv 安装（推荐）
-uv pip install mcp-server-skill
+git clone https://github.com/QianjieTech/Open-ClaudeSkill.git
+cd Open-ClaudeSkill
+```
 
-# 或从源码安装
-git clone https://github.com/your-org/open-claudeskill
-cd open-claudeskill
+### 第二步：安装依赖
+
+**方式 A：使用系统 Python**
+
+```bash
+pip install -e .
+```
+
+这会将 `mcp-server-skill` 命令安装到系统 Python 的 Scripts 目录，通常在 PATH 中。
+
+**方式 B：使用 uv（推荐开发者）**
+
+如果使用 uv，命令不会自动加入 PATH，需要通过 `uv run` 调用：
+
+```bash
+uv venv
 uv pip install -e .
 ```
 
-### 配置
+**验证安装：**
 
-在 MCP 客户端配置中添加：
+```bash
+# 方式 A 安装后
+mcp-server-skill --help
+
+# 方式 B 安装后（需要使用 uv run）
+uv run mcp-server-skill --help
+
+# 如果安装成功会看到以下输出
+usage: mcp-server-skill [-h] [--skills-dir SKILLS_DIR] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+
+MCP Server for Claude Skills with progressive disclosure
+
+options:
+  -h, --help            show this help message and exit
+  --skills-dir SKILLS_DIR
+                        Directory containing skill folders (default: auto-detect)
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        Logging level (default: INFO)
+```
+
+### 第三步：配置 MCP 客户端
+
+根据你使用的 Agent 应用和安装方式选择对应配置：
+
+#### Kilo Code（推荐，已验证实测）
+
+**如果使用方式 A（系统 Python）：**
+
+```json
+{
+  "mcpServers": {
+    "skills": {
+      "command": "mcp-server-skill",
+      "args": []
+    }
+  }
+}
+```
+
+**如果使用方式 B（uv）：**
 
 ```json
 {
@@ -43,31 +100,70 @@ uv pip install -e .
 }
 ```
 
-### 创建 Skills
+**需要指定 `--skills-dir` 的情况：**
 
-1. 在项目中创建 `.skill` 目录
-2. 添加包含 `SKILL.md` 文件的 skill 文件夹：
+- mcp服务启动目录不在项目目录
+
+**如果agent可以指定项目级别的mcp配置，那么以项目级别配置本mcp工具，会自动加载读取当前目录下 `.skill/` 目录下的skill包**，否则，需要通过 `--skills-dir` 参数指定skill包所在的目录，才能正确读取到相应的skill。
+
+💡 **提示**：如果kilocode配置了项目级别的mcp但没有成功加载相应的skill，请手动点击"刷新MCP服务器按钮"或重启vscode再尝试
+
+#### QwenCode
+
+编辑配置文件：`C:\Users\替换为你的user名\.qwen\settings.json`（Windows）
+
+在该配置文件中加入以下部分（Qwencode好像只支持全局的mcp设置，因此需要手动指定skill目录）
+
+**系统 Python 安装：**
+
+```json
+{
+  "mcpServers": {
+    "skills": {
+      "command": "mcp-server-skill",
+      "args": ["--skills-dir", "C:\\Users\\YourName\\.skill"]
+    }
+  }
+}
+```
+
+### 第四步：加载Skill
+
+在项目根目录或全局目录创建 `.skill` 文件夹：
+
+```bash
+# 在当前项目创建（推荐）
+在项目根目录下创建 .skill/
+
+# 或在全局创建
+mkdir ~/.skill/                     # Linux/Mac
+mkdir C:\Users\YourName\.skill     # Windows
+```
+
+然后在此目录下放入相应的Skill包——直接复制Skill文件夹粘贴到 `.skill/` 文件夹下即可。项目的 `./examples` 目录下放了若干Anthropic官方提供的Skill包，足够完成第五步的测试。
+
+```bash
+# 一个简单的迁移skill的例子
+examples/canvas-design -复制到-> .skill/
+examples/brand-guidelines -复制到-> .skill/
+```
+
+最终是这种形式：**`.skill/canvas-design/`**
+
+### 第五步：测试体验
+
+重启你的 Agent 应用，然后在对话中输入：
 
 ```
-.skill/
-├── my-skill/
-│   ├── SKILL.md          # Skill 定义文件
-│   └── templates/        # 可选资源
+帮我制作一份1920*1080的宣传海报, 风格使用Anthropic品牌风格, 主题为: "未来属于人工智能?\n人工智能只是手段, 而非目标"
 ```
 
-3. 在 `SKILL.md` 中定义你的 skill：
+如果一切正常，Agent 会：
+1. 识别到你有`canvas-design`和`brand-guidelines`这2个 Skill
+2. 自动调用 `load_skill` 工具
+3. 按照 Skill 中的指导为你创建一个海报
 
-```markdown
----
-name: my-skill
-description: 这个 skill 的功能和使用场景
-license: MIT
----
-
-# Skill 指令
-
-为 Agent 提供的详细指令...
-```
+*当然也可能只调用其中的skill之一，这取决于大模型对于任务的理解，具有一定的随机性，在我的测试里，至少会调用这2个skill之一*
 
 ## Skill 格式
 

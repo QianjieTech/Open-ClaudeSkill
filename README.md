@@ -16,21 +16,78 @@ English | [简体中文](README.zh-CN.md)
 
 ## Quick Start
 
-### Installation
+> **⚠️ Current Status**: This project is not yet published to PyPI. You cannot use `uvx mcp-server-skill` directly at this time. We will publish to PyPI soon to enable simple one-line installation. For now, please follow the installation guide below.
+
+**Project Repository**: https://github.com/QianjieTech/Open-ClaudeSkill
+
+### Step 1: Clone the Repository
 
 ```bash
-# Install via uv (recommended)
-uv pip install mcp-server-skill
+git clone https://github.com/QianjieTech/Open-ClaudeSkill.git
+cd Open-ClaudeSkill
+```
 
-# Or install from source
-git clone https://github.com/your-org/open-claudeskill
-cd open-claudeskill
+### Step 2: Installation
+
+**Method A: Using System Python**
+
+```bash
+pip install -e .
+```
+
+This installs the `mcp-server-skill` command to your system Python's Scripts directory, which is usually in PATH.
+
+**Method B: Using uv (Recommended for Developers)**
+
+If using uv, the command won't be automatically added to PATH. You'll need to use `uv run`:
+
+```bash
+uv venv
 uv pip install -e .
 ```
 
-### Configuration
+**Verify Installation:**
 
-Add to your MCP client configuration:
+```bash
+# After Method A installation
+mcp-server-skill --help
+
+# After Method B installation (requires uv run)
+uv run mcp-server-skill --help
+
+# If successful, you should see:
+usage: mcp-server-skill [-h] [--skills-dir SKILLS_DIR] [--log-level {DEBUG,INFO,WARNING,ERROR}]
+
+MCP Server for Claude Skills with progressive disclosure
+
+options:
+  -h, --help            show this help message and exit
+  --skills-dir SKILLS_DIR
+                        Directory containing skill folders (default: auto-detect)
+  --log-level {DEBUG,INFO,WARNING,ERROR}
+                        Logging level (default: INFO)
+```
+
+### Step 3: Configure MCP Client
+
+Choose the configuration based on your Agent application and installation method:
+
+#### Kilo Code (Recommended, Verified)
+
+**If using Method A (System Python):**
+
+```json
+{
+  "mcpServers": {
+    "skills": {
+      "command": "mcp-server-skill",
+      "args": []
+    }
+  }
+}
+```
+
+**If using Method B (uv):**
 
 ```json
 {
@@ -43,31 +100,70 @@ Add to your MCP client configuration:
 }
 ```
 
-### Creating Skills
+**When to specify `--skills-dir`:**
 
-1. Create a `.skill` directory in your project
-2. Add skill folders with `SKILL.md` files:
+- MCP server starts in a directory other than the project directory
+
+**If your agent supports project-level MCP configuration**, configuring this MCP tool at the project level will automatically load skills from `.skill/` in the current directory. Otherwise, you need to specify the skill directory via the `--skills-dir` parameter.
+
+💡 **Tip**: If Kilo Code doesn't load skills after configuring project-level MCP, manually click the "Refresh MCP Server" button or restart VSCode.
+
+#### QwenCode
+
+Edit config file: `C:\Users\YourUserName\.qwen\settings.json` (Windows)
+
+Add the following (QwenCode seems to only support global MCP settings, so you need to manually specify the skill directory):
+
+**System Python Installation:**
+
+```json
+{
+  "mcpServers": {
+    "skills": {
+      "command": "mcp-server-skill",
+      "args": ["--skills-dir", "C:\\Users\\YourName\\.skill"]
+    }
+  }
+}
+```
+
+### Step 4: Load Skills
+
+Create a `.skill` folder in your project root or global directory:
+
+```bash
+# Create in current project (recommended)
+Create .skill/ in project root directory
+
+# Or create globally
+mkdir ~/.skill         # Linux/Mac
+mkdir C:\Users\YourName\.skill  # Windows
+```
+
+Then place your Skill packages in this directory - simply copy Skill folders into the `.skill/` folder. The `./examples` directory contains several official Anthropic Skill packages, which are sufficient for Step 5 testing.
+
+```bash
+# Example of migrating skills
+Copy examples/canvas-design -> .skill/
+Copy examples/brand-guidelines -> .skill/
+```
+
+The final structure should look like: **`.skill/canvas-design/`**
+
+### Step 5: Test the Experience
+
+Restart your Agent application, then enter in the conversation:
 
 ```
-.skill/
-├── my-skill/
-│   ├── SKILL.md          # Skill definition
-│   └── templates/        # Optional resources
+Create a 1920*1080 promotional poster using Anthropic brand style. Theme: "AI belongs to the future?\nAI is just a means, not an end"
 ```
 
-3. Define your skill in `SKILL.md`:
+If everything works correctly, the Agent will:
+1. Recognize that you have `canvas-design` and `brand-guidelines` skills
+2. Automatically call the `load_skill` tool
+3. Create a poster following the guidance in the Skills
 
-```markdown
----
-name: my-skill
-description: What this skill does and when to use it
-license: MIT
----
-
-# Skill Instructions
-
-Detailed instructions for the agent...
-```
+*Note: It might only call one of these skills, depending on the model's understanding of the task. This has some randomness. In my tests, at least one of these 2 skills is called.*
 
 ## Skill Format
 
