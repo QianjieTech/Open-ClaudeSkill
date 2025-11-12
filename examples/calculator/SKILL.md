@@ -1,5 +1,5 @@
 ---
-name: example-calculator
+name: calculator
 description: A simple calculator skill that demonstrates the skill system. Use this when users ask for mathematical calculations, arithmetic operations, or number crunching.
 license: MIT
 ---
