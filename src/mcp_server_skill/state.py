@@ -47,22 +47,24 @@ class ServerState:
         1. Command-line argument (--skills-dir)
         2. Environment variable (MCP_SKILLS_DIR)
         3. Dynamically set path (via set_skills_directory tool)
-        4. Project-level discovery (.skill in project root)
+        4. Project-level discovery (.claude/skills/ or .skill/ in project root)
         5. Global fallback (~/.skill)
 
         Returns:
             Path to skills directory or None if not found
         """
-        # Priority 1: CLI argument
+        # Priority 1: CLI argument (with smart subdirectory detection)
         if self.cli_skills_dir is not None:
-            if self.cli_skills_dir.exists():
-                return self.cli_skills_dir
+            resolved_path = self._resolve_skills_path(self.cli_skills_dir)
+            if resolved_path:
+                return resolved_path
 
-        # Priority 2: Environment variable
+        # Priority 2: Environment variable (with smart subdirectory detection)
         if self.env_skills_dir:
             env_path = Path(self.env_skills_dir)
-            if env_path.exists():
-                return env_path
+            resolved_path = self._resolve_skills_path(env_path)
+            if resolved_path:
+                return resolved_path
 
         # Priority 3: Dynamically set directory
         if self.skills_directory is not None:
@@ -81,20 +83,101 @@ class ServerState:
 
         return None
 
+    def _resolve_skills_path(self, path: Path) -> Optional[Path]:
+        """
+        Resolve a path to a skills directory with smart subdirectory detection.
+
+        If the path points to a project root, automatically detect .claude/skills/ or .skill/.
+        If the path is already a skills directory, use it directly.
+
+        Args:
+            path: Path to resolve
+
+        Returns:
+            Resolved skills directory path, or None if not found
+        """
+        if not path.exists():
+            return None
+
+        if not path.is_dir():
+            return None
+
+        # If path is already a skills directory, use it directly
+        if path.name in [".skill", "skills"]:
+            return path
+
+        # Otherwise, look for skills subdirectories
+        # Check both potential directories and prefer non-empty ones
+        claude_skills_dir = path / ".claude" / "skills"
+        skill_dir = path / ".skill"
+
+        claude_exists = claude_skills_dir.is_dir()
+        skill_exists = skill_dir.is_dir()
+
+        # If both exist, check which one has skills (non-empty with SKILL.md files)
+        if claude_exists and skill_exists:
+            claude_has_skills = self._directory_has_skills(claude_skills_dir)
+            skill_has_skills = self._directory_has_skills(skill_dir)
+
+            # Priority 1: .claude/skills/ if it has skills
+            if claude_has_skills:
+                return claude_skills_dir
+            # Priority 2: .skill/ if it has skills
+            if skill_has_skills:
+                return skill_dir
+            # If both are empty, prefer .claude/skills/ (ClaudeCode format)
+            return claude_skills_dir
+
+        # Only .claude/skills/ exists
+        if claude_exists:
+            return claude_skills_dir
+
+        # Only .skill/ exists
+        if skill_exists:
+            return skill_dir
+
+        # If no subdirectories found, try using the path as-is
+        # (in case it's a custom skills directory structure)
+        return path
+
+    def _directory_has_skills(self, directory: Path) -> bool:
+        """
+        Check if a directory contains any skills (subdirectories with SKILL.md).
+
+        Args:
+            directory: Directory to check
+
+        Returns:
+            True if directory contains at least one valid skill
+        """
+        if not directory.exists() or not directory.is_dir():
+            return False
+
+        # Check for any subdirectory containing SKILL.md
+        for item in directory.iterdir():
+            if item.is_dir() and not item.name.startswith('.'):
+                if (item / "SKILL.md").exists():
+                    return True
+
+        return False
+
     def _find_project_skill_dir(self) -> Optional[Path]:
         """
-        Find project-level .skill directory by traversing up from current directory.
+        Find project-level skills directory by traversing up from current directory.
 
         Looks for project root markers:
         - .git/
+        - .claude/
         - .skill/
         - package.json
         - pyproject.toml, setup.py
         - Cargo.toml
         - go.mod
 
+        Priority: .claude/skills/ (ClaudeCode format) > .skill/ (legacy format)
+
         Returns:
-            Path to .skill directory in project root, or None if not found
+            Path to skills directory in project root, or None if not found
         """
         current = Path.cwd()
 
@@ -103,6 +186,7 @@ class ServerState:
             # Check if this is a project root
             is_project_root = any([
                 (current / ".git").is_dir(),
+                (current / ".claude").is_dir(),
                 (current / ".skill").is_dir(),
                 (current / "package.json").is_file(),
                 (current / "pyproject.toml").is_file(),
@@ -112,8 +196,31 @@ class ServerState:
             ])
 
             if is_project_root:
+                # Check both potential directories
+                claude_skills_dir = current / ".claude" / "skills"
                 skill_dir = current / ".skill"
-                if skill_dir.is_dir():
+
+                claude_exists = claude_skills_dir.is_dir()
+                skill_exists = skill_dir.is_dir()
+
+                # If both exist, prefer the non-empty one
+                if claude_exists and skill_exists:
+                    claude_has_skills = self._directory_has_skills(claude_skills_dir)
+                    skill_has_skills = self._directory_has_skills(skill_dir)
+
+                    if claude_has_skills:
+                        return claude_skills_dir
+                    if skill_has_skills:
+                        return skill_dir
+                    # If both empty, prefer .claude/skills/
+                    return claude_skills_dir
+
+                # Priority 1: .claude/skills/ (ClaudeCode format)
+                if claude_exists:
+                    return claude_skills_dir
+
+                # Priority 2: .skill/ (legacy format)
+                if skill_exists:
                     return skill_dir
 
             current = current.parent
@@ -125,7 +232,7 @@ class ServerState:
         Set the skills directory dynamically.
 
         Args:
-            path: Absolute or relative path to skills directory
+            path: Absolute or relative path to project root, .claude/skills/, or .skill/ directory
 
         Returns:
             Tuple of (success: bool, message: str)
@@ -140,11 +247,32 @@ class ServerState:
         if not skills_path.is_dir():
             return False, f"Path is not a directory: {skills_path}"
 
-        # Check for .skill subdirectory if path doesn't end with .skill
-        if skills_path.name != ".skill":
-            potential_skill_dir = skills_path / ".skill"
-            if potential_skill_dir.is_dir():
-                skills_path = potential_skill_dir
+        # Smart detection: if path is not already a skills directory, look for subdirectories
+        if skills_path.name not in [".skill", "skills"]:
+            claude_skills_dir = skills_path / ".claude" / "skills"
+            skill_dir = skills_path / ".skill"
+
+            claude_exists = claude_skills_dir.is_dir()
+            skill_exists = skill_dir.is_dir()
+
+            # If both exist, prefer the non-empty one
+            if claude_exists and skill_exists:
+                claude_has_skills = self._directory_has_skills(claude_skills_dir)
+                skill_has_skills = self._directory_has_skills(skill_dir)
+
+                if claude_has_skills:
+                    skills_path = claude_skills_dir
+                elif skill_has_skills:
+                    skills_path = skill_dir
+                else:
+                    # Both empty, prefer .claude/skills/
+                    skills_path = claude_skills_dir
+            # Priority 1: .claude/skills/ (ClaudeCode format)
+            elif claude_exists:
+                skills_path = claude_skills_dir
+            # Priority 2: .skill/ (legacy format)
+            elif skill_exists:
+                skills_path = skill_dir
 
         self.skills_directory = skills_path
         return True, f"Skills directory set to: {skills_path}"

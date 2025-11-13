@@ -87,7 +87,22 @@ class SkillMCPServer:
 
         # Initialize skill loader (will use state to find directory)
         effective_dir = self.state.get_effective_skills_directory()
+
+        # Log path resolution details
+        logger.info(f"Current working directory: {Path.cwd()}")
+        if skills_dir:
+            logger.info(f"CLI skills_dir argument: {skills_dir}")
+        logger.info(f"Resolved skills directory: {effective_dir}")
+
         self.skill_loader = SkillLoader(effective_dir)
+
+        # Discover skills immediately so they're available when list_tools() is called
+        if effective_dir:
+            self.skill_loader.discover_skills()
+            self.state.update_skills(self.skill_loader.skills)
+            logger.info(f"Discovered {len(self.skill_loader.skills)} skills: {list(self.skill_loader.skills.keys())}")
+        else:
+            logger.warning("No skills directory found - skills will not be available")
 
         self.observer: Optional[Observer] = None
 
