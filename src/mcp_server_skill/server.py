@@ -80,7 +80,7 @@ class SkillMCPServer:
     """MCP Server that provides skill loading capabilities."""
 
     def __init__(self, skills_dir: Optional[Path] = None):
-        self.server = Server("mcp-server-skill")
+        self.server = Server("agentskill-mcp")
 
         # Initialize server state
         self.state = ServerState(cli_skills_dir=skills_dir)
@@ -117,39 +117,39 @@ class SkillMCPServer:
             """List available tools."""
             tools = []
 
-            # Tool 1: Set skills directory (environment awareness)
-            tools.append(Tool(
-                name="set_skills_directory",
-                description="""Set the skills directory for the current session.
+#             # Tool 1: Set skills directory (environment awareness)
+#             tools.append(Tool(
+#                 name="set_skills_directory",
+#                 description="""Set the skills directory for the current session.
 
-This tool allows you to specify which .skill directory to use for loading skills.
-Use this at the beginning of a conversation if you have access to the user's current
-working directory or project path.
+# This tool allows you to specify which .skill directory to use for loading skills.
+# Use this at the beginning of a conversation if you have access to the user's current
+# working directory or project path.
 
-Usage:
-- Call this once at the start of the conversation
-- Provide the path to the project directory (it will look for .skill subdirectory)
-- Or provide the direct path to a .skill directory
-- Supports both absolute and relative paths
+# Usage:
+# - Call this once at the start of the conversation
+# - Provide the path to the project directory (it will look for .skill subdirectory)
+# - Or provide the direct path to a .skill directory
+# - Supports both absolute and relative paths
 
-Example:
-If user is working in /path/to/project and it has /path/to/project/.skill:
-  set_skills_directory(path="/path/to/project")
+# Example:
+# If user is working in /path/to/project and it has /path/to/project/.skill:
+#   set_skills_directory(path="/path/to/project")
 
-If you discover the current directory through context or pwd command:
-  set_skills_directory(path=<current_directory>)
-""",
-                inputSchema={
-                    "type": "object",
-                    "properties": {
-                        "path": {
-                            "type": "string",
-                            "description": "Absolute or relative path to the project directory or .skill directory"
-                        }
-                    },
-                    "required": ["path"]
-                }
-            ))
+# If you discover the current directory through context or pwd command:
+#   set_skills_directory(path=<current_directory>)
+# """,
+#                 inputSchema={
+#                     "type": "object",
+#                     "properties": {
+#                         "path": {
+#                             "type": "string",
+#                             "description": "Absolute or relative path to the project directory or .skill directory"
+#                         }
+#                     },
+#                     "required": ["path"]
+#                 }
+#             ))
 
             # Tool 2: Load skill (progressive disclosure)
             tools.append(Tool(
