@@ -1,169 +1,184 @@
-# Open-ClaudeSkill
+# AgentSkill MCP
 
-**支持渐进式披露的 Claude Skills MCP 服务器**
+**让任何 MCP 兼容的 Agent 都能使用 Claude Agent Skills**
 
-将任何兼容 MCP 的 Agent 应用转变为 Claude Skills 强大平台。本服务器支持环境感知、热重载的技能管理，适用于所有 MCP 客户端。
+一个通用的 MCP 服务器，让**任何**支持 MCP 的 Agent 应用都能使用 Anthropic 官方的 [Claude Agent Skills](https://github.com/anthropics/skills)，并实现**渐进式披露** - 减少上下文开销的同时最大化能力。
+
+**包名**: `agentskill-mcp` | **PyPI**: [agentskill-mcp](https://pypi.org/project/agentskill-mcp/)
 
 [English](README.md) | 简体中文
 
+## 为什么需要 AgentSkill MCP?
+
+Claude Agent Skills 设计精妙，但被锁定在 Claude 生态内。本项目打破这一限制：
+
+- ✅ **通用兼容**：适配任何 MCP 兼容的 agent（Kilo Code、Cursor、Roo Code、Codex 等）
+- ✅ **100% Claude Skill 兼容**：使用 Anthropic 官方 Skill 格式 - 无需任何修改
+- ✅ **渐进式披露**：实现与 Claude Code 相同的智能上下文加载
+- ✅ **零锁定**：标准 MCP 协议意味着永不被单一平台锁定
+
+### Skills 解决的问题
+
+传统 MCP 工具会一次性加载所有文档，在你开始工作前就消耗 大量 tokens。加载 15+ 工具后，agent 还没做事就已经上下文告急。
+
+**Skills 通过渐进式披露解决这个问题**：agent 初始只看到轻量级的 skill 列表，仅在需要时才加载完整内容。本项目将同样的效率带给所有 MCP 兼容的 agent。
+
 ## 特性
 
-- **零配置体验**：Skill 文件自动发现和加载
-- **实时热重载**：文件修改立即生效（取决于协议特性支持）
-- **环境感知**：自动检测项目环境，支持全局/项目级配置
-- **跨平台兼容**：标准 MCP 协议，适配所有 Agent 应用
-- **优雅降级**：根据客户端能力自动适配
+- 🚀 **一行安装**：`pip install agentskill-mcp` 或 `uvx agentskill-mcp`
+- 🔌 **通用 MCP 兼容(待逐步测试适配)**：适配 Kilo Code、Cursor、Roo Code、Codex、Cherry Studio 及任何 MCP 兼容 agent
+- 📦 **官方 Skill 格式**：完全兼容 [Anthropic 的 Claude Skills](https://github.com/anthropics/skills)
+- 🎯 **渐进式披露**：智能上下文加载 - 在需要 skills 之前几乎零开销
+- 🔄 **热重载(暂未实现)**：实时检测文件变化并更新（协议支持时）
+- 🗂️ **智能路径发现**：自动检测 `.claude/skills/`、`.skill/` 或自定义目录
+- 🌍 **环境感知**：项目级和全局 skill 目录，自动检测
+- 🎨 **ClaudeCode 兼容**：同时支持 `.claude/skills/`（ClaudeCode 格式）和 `.skill/`（本项目定义的路径格式）
+
+## 项目状态
+
+⚠️ **早期开发阶段** - 本项目目前处于早期开发阶段，目前仅在 Windows 上进行了测试。
+
+**已测试平台：**
+- ✅ **Kilo Code**（AI 编码助手）- Windows
+- ✅ **Roo Code**（AI 编码助手）- Windows
+- ✅ **Cline**（AI 编码助手）- Windows
+
+**下一步计划：**
+- 🔄 在更多 MCP 兼容的 agent 上测试（Codex、Cursor、QwenCode 等）
+- 🔄 跨平台测试（macOS、Linux）
+- 🔄 更广泛的兼容性验证
+- 🔄 热重载可行性的测试(基于mcp的​List Changed Notification)具体参见
+https://modelcontextprotocol.io/specification/2025-06-18/server/tools#list-changed-notification
+
+**理论上**：任何实现了 [Model Context Protocol](https://modelcontextprotocol.io) 的 agent 都应该能工作，但我们正在积极测试以确认。
 
 ## 快速开始
 
-> **⚠️ 当前状态**: 本项目暂未发布到 PyPI，目前无法通过 `uvx mcp-server-skill` 的方式直接使用。我们会尽快打包上传到 PyPI，届时您可以像使用其他 MCP 工具一样通过简单的配置启用 AgentSkill 能力。目前请按照下面的安装指南体验。
+### 配置
 
-**项目地址**: https://github.com/QianjieTech/Open-ClaudeSkill
+⚠️ **当前推荐使用方式**：通过 `--skills-dir` 参数指定 skills 目录
 
-### 第一步：克隆项目
+在你的 MCP 客户端配置文件中添加。查看你的 agent 文档找到 MCP 配置位置：
+- **Kilo Code**：工作区的 `.kilocode/mcp.json`
+- **Roo Code**：查看 agent 文档
+- **Cursor**：工作区的 `.cursor/mcp.json`
+- **其他 agent**：参考 agent 特定的 MCP 配置指南
 
-```bash
-git clone https://github.com/QianjieTech/Open-ClaudeSkill.git
-cd Open-ClaudeSkill
-```
-
-### 第二步：安装依赖
-
-**方式 A：使用系统 Python**
-
-```bash
-pip install -e .
-```
-
-这会将 `mcp-server-skill` 命令安装到系统 Python 的 Scripts 目录，通常在 PATH 中。
-
-**方式 B：使用 uv（推荐开发者）**
-
-如果使用 uv，命令不会自动加入 PATH，需要通过 `uv run` 调用：
-
-```bash
-uv venv
-uv pip install -e .
-```
-
-**验证安装：**
-
-```bash
-# 方式 A 安装后
-mcp-server-skill --help
-
-# 方式 B 安装后（需要使用 uv run）
-uv run mcp-server-skill --help
-
-# 如果安装成功会看到以下输出
-usage: mcp-server-skill [-h] [--skills-dir SKILLS_DIR] [--log-level {DEBUG,INFO,WARNING,ERROR}]
-
-MCP Server for Claude Skills with progressive disclosure
-
-options:
-  -h, --help            show this help message and exit
-  --skills-dir SKILLS_DIR
-                        Directory containing skill folders (default: auto-detect)
-  --log-level {DEBUG,INFO,WARNING,ERROR}
-                        Logging level (default: INFO)
-```
-
-### 第三步：配置 MCP 客户端
-
-根据你使用的 Agent 应用和安装方式选择对应配置：
-
-#### Kilo Code（推荐，已验证实测）
-
-**如果使用方式 A（系统 Python）：**
+**推荐配置（Windows）：**
 
 ```json
 {
   "mcpServers": {
     "skills": {
-      "command": "mcp-server-skill",
-      "args": []
+      "command": "uvx",
+      "args": [
+        "agentskill-mcp",
+        "--skills-dir",
+        "C:\\Users\\YourName\\path\\to\\skills"
+      ]
     }
   }
 }
 ```
 
-**如果使用方式 B（uv）：**
+**macOS/Linux：**
 
 ```json
 {
   "mcpServers": {
     "skills": {
-      "command": "uv",
-      "args": ["run", "mcp-server-skill"]
+      "command": "uvx",
+      "args": [
+        "agentskill-mcp",
+        "--skills-dir",
+        "/Users/YourName/path/to/skills"
+      ]
     }
   }
 }
 ```
 
-**需要指定 `--skills-dir` 的情况：**
+**使用 pip 安装版本：**
 
-- mcp服务启动目录不在项目目录
-
-**如果agent可以指定项目级别的mcp配置，那么以项目级别配置本mcp工具，会自动加载读取当前目录下 `.skill/` 目录下的skill包**，否则，需要通过 `--skills-dir` 参数指定skill包所在的目录，才能正确读取到相应的skill。
-
-💡 **提示**：如果kilocode配置了项目级别的mcp但没有成功加载相应的skill，请手动点击"刷新MCP服务器按钮"或重启vscode再尝试
-
-#### QwenCode
-
-编辑配置文件：`C:\Users\替换为你的user名\.qwen\settings.json`（Windows）
-
-在该配置文件中加入以下部分（Qwencode好像只支持全局的mcp设置，因此需要手动指定skill目录）
-
-**系统 Python 安装：**
+将 `"command": "uvx"` 替换为 `"command": "agentskill-mcp"`，并从 args 中移除：
 
 ```json
 {
   "mcpServers": {
     "skills": {
-      "command": "mcp-server-skill",
-      "args": ["--skills-dir", "C:\\Users\\YourName\\.skill"]
+      "command": "agentskill-mcp",
+      "args": [
+        "--skills-dir",
+        "C:\\Users\\YourName\\path\\to\\skills"
+      ]
     }
   }
 }
 ```
 
-### 第四步：加载Skill
+💡 **提示**：
+- 在 `--skills-dir` 中使用绝对路径以避免歧义
+- 配置修改后，重启你的 agent 应用或重新加载 MCP 服务器
+- 先使用 `examples/` 目录测试，然后再创建自定义 skills
 
-在项目根目录或全局目录创建 `.skill` 文件夹：
+### 加载 Skills
+
+创建 skills 目录并添加 skill 包：
+
+**格式 1：ClaudeCode 格式（推荐给 ClaudeCode 用户）**
 
 ```bash
 # 在当前项目创建（推荐）
+在项目根目录下创建 .claude/skills/
+
+# 或在全局创建
+mkdir -p ~/.claude/skills    # Linux/Mac
+mkdir C:\Users\YourName\.claude\skills  # Windows
+```
+
+**格式 2：本项目自定义格式（兼容其他 agent）**
+
+```bash
+# 在当前项目创建
 在项目根目录下创建 .skill/
 
 # 或在全局创建
-mkdir ~/.skill/                     # Linux/Mac
-mkdir C:\Users\YourName\.skill     # Windows
+mkdir ~/.skill         # Linux/Mac
+mkdir C:\Users\YourName\.skill  # Windows
 ```
 
-然后在此目录下放入相应的Skill包——直接复制Skill文件夹粘贴到 `.skill/` 文件夹下即可。项目的 `./examples` 目录下放了若干Anthropic官方提供的Skill包，足够完成第五步的测试。
+然后在此目录下放入相应的 Skill 包——直接复制 Skill 文件夹粘贴到 skills 目录下即可。项目的 `./examples` 目录下放了若干 Anthropic 官方提供的 Skill 包，足够完成测试。
 
 ```bash
-# 一个简单的迁移skill的例子
-examples/canvas-design -复制到-> .skill/
-examples/brand-guidelines -复制到-> .skill/
+# 示例：迁移 skills（ClaudeCode 格式）
+复制 examples/canvas-design -> .claude/skills/
+复制 examples/brand-guidelines -> .claude/skills/
+
+# 或（本项目自定义格式）
+复制 examples/canvas-design -> .skill/
+复制 examples/brand-guidelines -> .skill/
 ```
 
-最终是这种形式：**`.skill/canvas-design/`**
+最终结构：
+- ClaudeCode 格式：**`.claude/skills/canvas-design/`**
+- 本项目自定义格式：**`.skill/canvas-design/`**
 
-### 第五步：测试体验
+### 试用
 
-重启你的 Agent 应用，然后在对话中输入：
+重启你的 Agent 应用并测试：
 
 ```
-帮我制作一份1920*1080的宣传海报, 风格使用Anthropic品牌风格, 主题为: "未来属于人工智能?\n人工智能只是手段, 而非目标"
+帮我制作一份1920x1080的宣传海报，使用 Anthropic 品牌风格。
+主题："未来属于人工智能？人工智能只是手段，而非目标"
 ```
 
-如果一切正常，Agent 会：
-1. 识别到你有`canvas-design`和`brand-guidelines`这2个 Skill
-2. 自动调用 `load_skill` 工具
-3. 按照 Skill 中的指导为你创建一个海报
+**会发生什么：**
+1. Agent 在 `load_skill` 工具描述中看到可用的 skills
+2. Agent 识别相关的 skills（`canvas-design`、`brand-guidelines`）
+3. Agent 调用 `load_skill` 获取完整的 skill 详情
+4. Agent 按照 skill 指导创建海报
 
-*当然也可能只调用其中的skill之一，这取决于大模型对于任务的理解，具有一定的随机性，在我的测试里，至少会调用这2个skill之一*
+**注意**：Agent 可能根据任务理解只调用其中一个 skill。这是正常的 - AI agent 在工具选择上存在固有的随机性。
 
 ## Skill 格式
 
@@ -212,46 +227,52 @@ Skills 可以包含模板、字体、脚本等资源：
 
 服务器按以下优先级自动查找 skills：
 
-1. **命令行参数**：`--skills-dir /path/to/.skill`
-2. **环境变量**：`MCP_SKILLS_DIR=/path/to/.skill`
-3. **动态设置**：通过 `set_skills_directory` 工具
-4. **项目级别**：项目根目录的 `.skill/`（检测 `.git`、`package.json` 等）
-5. **全局回退**：`~/.skill`
+1. **命令行参数**：`--skills-dir /path/to/skills` ⭐ **推荐**
+2. **环境变量**：`MCP_SKILLS_DIR=/path/to/skills`
+3. **项目级别**：项目根目录的 `.claude/skills/` 或 `.skill/`（检测 `.git`、`.claude/`、`package.json` 等）
+4. **全局回退**：`~/.skill`
 
-## 使用方法
+**注意**：项目级别的发现优先选择 `.claude/skills/`（ClaudeCode 格式）而不是 `.skill/`（本项目自定义格式），当两者都存在时。
 
-### Type B 客户端（具有本地 Agent 能力）
+**当前推荐**：始终使用 `--skills-dir` 参数以获得最佳兼容性。
 
-Agent 可以动态设置 skills 目录：
+## 使用示例
 
+### 示例 1：使用绝对路径（推荐）
+
+```json
+{
+  "mcpServers": {
+    "skills": {
+      "command": "uvx",
+      "args": [
+        "agentskill-mcp",
+        "--skills-dir",
+        "C:\\userfolder\\DevFolder\\my-skills"
+      ]
+    }
+  }
+}
 ```
-Agent 检测到：用户在 /path/to/project
-Agent 调用：set_skills_directory(path="/path/to/project")
-服务器响应：发现 5 个 skills：code-reviewer、calculator...
-```
 
-### Type A 客户端（无本地 Agent 能力）
+### 示例 2：使用项目示例
 
-使用全局配置：
-
-```bash
-mkdir ~/.skill
-cp -r examples/code-reviewer ~/.skill/
+```json
+{
+  "mcpServers": {
+    "skills": {
+      "command": "uvx",
+      "args": [
+        "agentskill-mcp",
+        "--skills-dir",
+        "C:\\path\\to\\Open-ClaudeSkill\\examples"
+      ]
+    }
+  }
+}
 ```
 
 ## 提供的工具
-
-### `set_skills_directory`
-
-设置当前会话的 skills 目录。
-
-**参数：**
-- `path`（字符串）：项目或 `.skill` 目录的绝对或相对路径
-
-**示例：**
-```python
-set_skills_directory(path="/path/to/project")
-```
 
 ### `load_skill`
 
@@ -274,7 +295,7 @@ load_skill(skill="code-reviewer")
 ### 命令行参数
 
 ```bash
-mcp-server-skill --skills-dir /custom/path --log-level DEBUG
+agentskill-mcp --skills-dir /custom/path --log-level DEBUG
 ```
 
 ### 日志记录
@@ -282,7 +303,7 @@ mcp-server-skill --skills-dir /custom/path --log-level DEBUG
 设置调试日志级别：
 
 ```bash
-mcp-server-skill --log-level DEBUG
+agentskill-mcp --log-level DEBUG
 ```
 
 级别：`DEBUG`、`INFO`、`WARNING`、`ERROR`
@@ -297,6 +318,47 @@ mcp-server-skill --log-level DEBUG
 - **code-reviewer**：全面的代码审查框架
 - **calculator**：数学计算
 
+### 安装
+
+**方式 1：使用 pip（推荐）**
+
+```bash
+pip install agentskill-mcp
+```
+
+**方式 2：使用 uvx（无需安装即可试用）**
+
+```bash
+# 直接运行，无需安装
+uvx agentskill-mcp --help
+```
+
+**方式 3：使用 uv**
+
+```bash
+uv pip install agentskill-mcp
+```
+
+**验证安装：**
+
+```bash
+agentskill-mcp --help
+
+# 预期输出:
+# usage: agentskill-mcp [-h] [--skills-dir SKILLS_DIR]
+#                       [--log-level {DEBUG,INFO,WARNING,ERROR}]
+#
+# AgentSkill MCP - MCP Server for Claude Skills with progressive disclosure
+```
+
+**开发模式**（如果需要修改代码）：
+
+```bash
+git clone https://github.com/QianjieTech/Open-ClaudeSkill.git
+cd Open-ClaudeSkill
+pip install -e .
+```
+
 ## 开发
 
 ### 从源码运行
@@ -306,10 +368,10 @@ mcp-server-skill --log-level DEBUG
 uv pip install -e .
 
 # 运行服务器
-uv run mcp-server-skill
+uv run agentskill-mcp
 
 # 使用调试日志运行
-uv run mcp-server-skill --log-level DEBUG
+uv run agentskill-mcp --log-level DEBUG
 ```
 
 ### 创建自定义 Skills
@@ -336,187 +398,6 @@ Skills 通过单个 `load_skill` 工具暴露，该工具在描述中列出所�
 ### 热重载
 
 通过 watchdog 检测文件变化并触发 skill 重新加载。变化对下一个 Agent 请求立即生效。
-
-## 打包与发布
-
-### 构建分发包
-
-```bash
-# 构建 Wheel 和源码包
-uv build
-
-# 生成文件在 dist/ 目录
-# - mcp_server_skill-0.1.1-py3-none-any.whl
-# - mcp_server_skill-0.1.1.tar.gz
-```
-
-### 安装方式
-
-**方式 1：从 Wheel 包安装**（推荐）
-```bash
-pip install dist/mcp_server_skill-0.1.1-py3-none-any.whl
-```
-
-**方式 2：从 Git 仓库安装**
-```bash
-pip install git+https://github.com/your-org/open-claudeskill.git
-```
-
-**方式 3：从 PyPI 安装**（公开发布后）
-```bash
-pip install mcp-server-skill
-```
-
-详细打包指南请参考：[PACKAGING_GUIDE.md](PACKAGING_GUIDE.md)
-
-## 配置示例
-
-### Cherry Studio
-
-配置文件位置：`%APPDATA%\Cherry Studio\config.json`
-
-```json
-{
-  "mcpServers": {
-    "skills": {
-      "command": "mcp-server-skill",
-      "args": []
-    }
-  }
-}
-```
-
-### Claude Desktop
-
-**Windows**：`%APPDATA%\Claude\claude_desktop_config.json`
-**macOS**：`~/Library/Application Support/Claude/claude_desktop_config.json`
-**Linux**：`~/.config/claude/claude_desktop_config.json`
-
-```json
-{
-  "mcpServers": {
-    "skills": {
-      "command": "mcp-server-skill",
-      "args": ["--skills-dir", "C:\\Users\\YourName\\.skill"]
-    }
-  }
-}
-```
-
-### Kilo Code
-
-配置文件位置：`~/.kilo/mcp_config.json`
-
-```json
-{
-  "mcpServers": {
-    "skills": {
-      "command": "uv",
-      "args": ["run", "mcp-server-skill", "--log-level", "INFO"],
-      "env": {
-        "MCP_SKILLS_DIR": "/path/to/your/.skill"
-      }
-    }
-  }
-}
-```
-
-## 项目结构
-
-```
-open-claudeskill/
-├── src/
-│   └── mcp_server_skill/
-│       ├── __init__.py
-│       ├── server.py           # MCP 服务器实现
-│       ├── skill_loader.py     # Skill 发现和解析
-│       └── state.py            # 状态管理
-├── examples/                   # 示例 skills
-│   ├── algorithmic-art/
-│   ├── canvas-design/
-│   ├── brand-guidelines/
-│   ├── code-reviewer/
-│   └── calculator/
-├── .skill/                     # 本地 skills（不提交到 Git）
-├── dist/                       # 构建输出
-├── pyproject.toml             # 项目配置
-├── README.md                  # 英文文档
-├── README.zh-CN.md            # 中文文档
-├── PACKAGING_GUIDE.md         # 打包指南
-└── REFACTORING_SUMMARY.md     # 重构说明
-```
-
-## 常见问题
-
-### Q: 如何创建一个新的 skill？
-
-1. 在 `.skill/` 目录创建新文件夹
-2. 创建 `SKILL.md` 文件，包含 YAML 前置元数据和 Markdown 内容
-3. 可选：添加辅助资源（templates/、fonts/ 等）
-
-### Q: Skills 目录没有自动检测到怎么办？
-
-使用 `set_skills_directory` 工具手动设置：
-```python
-set_skills_directory(path="/path/to/your/project")
-```
-
-### Q: 如何调试 skill 加载问题？
-
-使用 DEBUG 日志级别运行：
-```bash
-mcp-server-skill --log-level DEBUG --skills-dir ./.skill
-```
-
-### Q: 可以在多个项目间共享 skills 吗？
-
-可以！使用以下方式之一：
-- 全局 skills：放在 `~/.skill`
-- 环境变量：`export MCP_SKILLS_DIR=/path/to/shared/skills`
-- 符号链接：`ln -s /path/to/shared/skills .skill`
-
-### Q: 如何更新已安装的包？
-
-```bash
-# 如果从 Wheel 安装
-pip install --upgrade --force-reinstall dist/mcp_server_skill-0.1.1-py3-none-any.whl
-
-# 如果从 Git 安装
-pip install --upgrade git+https://your-repo/open-claudeskill.git
-
-# 如果从 PyPI 安装
-pip install --upgrade mcp-server-skill
-```
-
-## 版本历史
-
-### v0.1.1（当前）
-
-**新功能：**
-- ✅ 环境感知的路径发现（5 级优先级）
-- ✅ `set_skills_directory` 工具
-- ✅ 项目根目录自动检测
-- ✅ 防抖文件监控（300ms）
-- ✅ 辅助资源路径解析
-- ✅ 结构化日志系统
-
-**改进：**
-- ✅ 移除非官方前置元数据字段（`allowed-tools`、`metadata`）
-- ✅ 100% 兼容官方 Claude Skill 规范
-- ✅ 更好的错误处理和隔离
-- ✅ 优化的构建配置
-
-**修复：**
-- 🐛 修复技能名称与文件夹不匹配的警告
-- 🐛 改进 Windows 路径处理
-- 🐛 修复热重载时的竞态条件
-
-### v0.1.0
-
-- 🎉 初始版本
-- 基础 MCP 服务器实现
-- 渐进式披露支持
-- 基础文件监控
 
 ## 贡献
 
@@ -548,10 +429,6 @@ Apache License 2.0 - 详见 [LICENSE](LICENSE) 文件。
 
 ## 联系方式
 
-- **问题反馈**：[GitHub Issues](https://github.com/your-org/open-claudeskill/issues)
-- **讨论**：[GitHub Discussions](https://github.com/your-org/open-claudeskill/discussions)
-- **邮件**：your-email@example.com
+Q群: 1065081197
 
 ---
-
-**用 ❤️ 由 Open-ClaudeSkill 社区创建**
